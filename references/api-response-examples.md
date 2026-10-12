@@ -12,7 +12,7 @@
       "description": "Beachfront surf house in one of Mexico's best surf spots.",
       "coordinates": { "lat": 17.7547, "lng": -101.7283 },
       "googleMapsUrl": "https://maps.app.goo.gl/R1SNgjx736feb5me9",
-      "images": ["https://nightz-frontend.vercel.app/akaw-1.jpg"],
+      "images": ["https://nightz.co/akaw-1.jpg"],
       "token": {
         "symbol": "NZAKAW",
         "address": "0x1D0b7B031f12F7171aa6b1D92684Fa3d899b3846",
@@ -23,13 +23,13 @@
         "mechanism": "burn-to-book"
       },
       "pricing": {
-        "referenceNightPriceUsd": 220,
+        "referenceNightPriceUsd": 80,
         "tokensPerNight": 1,
         "currency": "NZAKAW"
       },
       "rules": {
-        "minNights": 1,
-        "maxNights": 30,
+        "minNights": 2,
+        "maxNights": 365,
         "checkIn": "15:00",
         "checkOut": "11:00",
         "cancellation": "non-refundable (burn is irreversible)"
@@ -40,10 +40,23 @@
         "pair": "NZAKAW/USDC",
         "dexUrl": "https://app.uniswap.org/swap?chain=base..."
       },
+      "sale": { "address": "0x40f26130b66C643EaCb1870fDE5c03185c75459d", "priceUsd": 80, "currency": "USDC" },
+      "propertyCode": "TULUM03",
+      "status": "active",
+      "frontend": "https://nightz.co"
+    },
+    {
+      "id": "tulum",
+      "name": "Tulum Penthouse",
+      "token": { "symbol": "NZTULUM", "address": "0x2Aaa8a37F9FD792EFcb243579850d9A88DF3ca1b", "chainId": 8453, "decimals": 2 },
+      "pricing": { "referenceNightPriceUsd": 130, "tokensPerNight": 1, "currency": "NZTULUM" },
+      "uniswapPool": null,
+      "sale": { "address": "0x51444B7ca8303D4F12D1531b3fe2F834774799c1", "priceUsd": 130, "currency": "USDC" },
+      "propertyCode": "TULUM_PENTHOUSE",
       "status": "active"
     }
   ],
-  "count": 1
+  "count": 2
 }
 ```
 
@@ -60,9 +73,10 @@
     { "from": "2026-03-05", "to": "2026-03-07", "nights": 2 }
   ],
   "bookingInstructions": {
-    "step1": "Acquire NZAKAW tokens (buy on Uniswap or OTC)",
-    "step2": "POST /agent/book with dates, wallet, guest info, and burn txHash",
-    "step3": "Tokens are burned on-chain, reservation is confirmed",
+    "step1": "Acquire NZAKAW tokens (launch sale 0x40f2… or Uniswap)",
+    "step2": "Sign and POST /reservation-holds before burning (requires sufficient property tokens)",
+    "step3": "Burn during the 30-minute hold, then sign and POST /reservations with holdId and txHash",
+    "propertyCode": "TULUM03",
     "tokenAddress": "0x1D0b7B031f12F7171aa6b1D92684Fa3d899b3846",
     "tokensPerNight": 1,
     "buyUrl": "https://app.uniswap.org/swap?chain=base..."
@@ -70,27 +84,28 @@
 }
 ```
 
-## POST /agent/book — Success (201)
+## GET /availability?property=TULUM03&from=2027-04-10&to=2027-04-13
+
+```json
+{ "property": "TULUM03", "from": "2027-04-10", "to": "2027-04-13", "available": true }
+```
+
+## POST /reservation-holds — Created (201)
+
+```json
+{ "id": "<holdId>", "expiresAt": "2027-04-01T18:30:00.000Z" }
+```
+
+## POST /reservations — Confirmed (201, or 200 on an idempotent retry)
+
+Body: the hold fields plus `"holdId"` and `"txHash"` (burn of nights × 100). Response is the saved reservation with its `id`, `status` and `txHash`.
+
+## POST /agent/book — Retired (410)
 
 ```json
 {
-  "success": true,
-  "reservation": {
-    "id": "m1abc123-4def5678",
-    "property": "akaw",
-    "propertyName": "Casa Akaw",
-    "wallet": "0x...",
-    "from": "2026-03-15",
-    "to": "2026-03-18",
-    "nights": 3,
-    "status": "Confirmed",
-    "guestName": "John Doe",
-    "guestEmail": "john@example.com",
-    "txHash": "0x..."
-  },
-  "message": "Reservation confirmed for 3 night(s) at Casa Akaw.",
-  "checkIn": "15:00",
-  "checkOut": "11:00"
+  "error": "Booking protocol upgraded",
+  "steps": ["Sign and POST /reservation-holds", "Burn during the hold window", "Sign and POST /reservations with holdId and txHash"]
 }
 ```
 
